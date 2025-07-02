@@ -12,11 +12,12 @@ import (
 func main() {
 	key := flag.String("API", "", "API_KEY")
 	password := flag.String("PASSWORD", "", "PASSWORD")
+	port := flag.Int("PORT", 8080, "PORT")
 
 	flag.Parse()
 
 	err := utils.SetConfig(&utils.Config{
-		Port:     8080,
+		Port:     *port,
 		ApiKey:   *key,
 		Password: *password,
 	})

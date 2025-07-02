@@ -1,0 +1,10 @@
+services:
+  vultr:
+    image: vultr-manager:latest
+    restart: always
+    ports:
+      - "8087:8087"
+    environment:
+      API: "1234"
+      PORT: 8087
+      PASSWORD: 1234
