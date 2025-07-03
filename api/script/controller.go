@@ -31,8 +31,7 @@ func List(c *fiber.Ctx) error {
 	}
 
 	config := utils.GetConfig()
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[interface{}](client, "https://api.vultr.com/v2/startup-scripts", queryParams, config.ApiKey)
+	resp, res, errResp, err := ScriptList(queryParams, config.ApiKey)
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,

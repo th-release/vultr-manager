@@ -8,7 +8,7 @@ type ListResponse struct {
 }
 
 type Application struct {
-	Id         int64  `json:"id"`
+	Id         int    `json:"id"`
 	Name       string `json:"name"`
 	ShortName  string `json:"short_name"`
 	DeployName string `json:"deploy_name"`

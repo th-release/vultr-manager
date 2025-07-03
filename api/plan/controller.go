@@ -3,14 +3,12 @@ package plan
 import (
 	"th-release/vultr-manager/utils"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 )
 
 func List(c *fiber.Ctx) error {
 	config := utils.GetConfig()
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[interface{}](client, "https://api.vultr.com/v2/plans", nil, config.ApiKey)
+	resp, res, errResp, err := PlanList(nil, config.ApiKey)
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,

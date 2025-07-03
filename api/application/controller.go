@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"th-release/vultr-manager/utils"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -35,8 +34,7 @@ func List(c *fiber.Ctx) error {
 		queryParams["cursor"] = dto.Cursor
 	}
 
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[ListResponse](client, "https://api.vultr.com/v2/applications", queryParams, "")
+	resp, res, errResp, err := ApplicationList(queryParams, "")
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,

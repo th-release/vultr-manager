@@ -17,6 +17,7 @@ func FireWallGroupList(c *fiber.Ctx) error {
 			Data:    nil,
 		})
 	}
+	config := utils.GetConfig()
 
 	if dto.PerPage == 0 {
 		dto.PerPage = 100
@@ -29,9 +30,7 @@ func FireWallGroupList(c *fiber.Ctx) error {
 		queryParams["cursor"] = dto.Cursor
 	}
 
-	config := utils.GetConfig()
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[FirewallGroupListResponse](client, "https://api.vultr.com/v2/firewalls", queryParams, config.ApiKey)
+	resp, res, errResp, err := FirewallGroupList(queryParams, config.ApiKey)
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,
@@ -263,8 +262,8 @@ func FireWallRulesList(c *fiber.Ctx) error {
 	}
 
 	config := utils.GetConfig()
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[FireWallRulesListResponse](client, "https://api.vultr.com/v2/firewalls/"+group+"/rules", queryParams, config.ApiKey)
+
+	resp, res, errResp, err := FirewallRulesList(group, queryParams, config.ApiKey)
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,

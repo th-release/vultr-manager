@@ -7,9 +7,13 @@ type BasicResponse struct {
 }
 
 type Config struct {
-	ApiKey   string `json:"APIKEY"`
-	Password string `json:"PASSWORD"`
-	Port     int    `json:"PORT"`
+	ApiKey           string `json:"APIKEY"`
+	Password         string `json:"PASSWORD"`
+	Port             int    `json:"PORT"`
+	DatabaseAddr     string `json:"DATABASE_ADDR"`
+	DatabaseUser     string `json:"DATABASE_USER"`
+	DatabasePassword string `json:"DATABASE_PASSWORD"`
+	DatabaseSchema   string `json:"DATABASE_SCHEMA"`
 }
 
 type Meta struct {

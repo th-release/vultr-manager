@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"th-release/vultr-manager/api/application"
 	"th-release/vultr-manager/api/firewall"
 	"th-release/vultr-manager/api/instance"
@@ -8,14 +9,19 @@ import (
 	"th-release/vultr-manager/api/plan"
 	"th-release/vultr-manager/api/region"
 	"th-release/vultr-manager/api/script"
+	"th-release/vultr-manager/scheduler"
 	"th-release/vultr-manager/utils"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/robfig/cron/v3"
 )
 
 type ServerConfig struct {
 	App    *fiber.App
 	Config utils.Config
+	Cron   *cron.Cron
 }
 
 func InitServer(config *utils.Config) *ServerConfig {
@@ -25,9 +31,40 @@ func InitServer(config *utils.Config) *ServerConfig {
 		return nil
 	}
 
+	c := scheduler.InitCron(*config)
+
 	server := &ServerConfig{
 		App:    app,
 		Config: *config,
+		Cron:   c,
+	}
+
+	db := utils.NewDB(server.Config)
+	defer db.Close()
+
+	server.App.Use(limiter.New(limiter.Config{
+		Next: func(c *fiber.Ctx) bool {
+			return c.IP() == "127.0.0.1"
+		},
+		Max:        20,
+		Expiration: 30 * time.Second,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.Get("x-forwarded-for")
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.JSON(utils.BasicResponse{
+				Success: false,
+				Message: "rateLimit",
+				Data:    nil,
+			})
+		},
+	}))
+
+	err := utils.CreateSchema(db)
+
+	if err != nil {
+		log.Fatalln("DB Setting Error: " + err.Error())
+		return nil
 	}
 
 	server.setupRoutes()
@@ -83,4 +120,5 @@ func (s *ServerConfig) setupRoutes() {
 	instanceGroup.Post("/create", instance.Create)
 	instanceGroup.Delete("/delete/:uuid", instance.Delete)
 	instanceGroup.Post("/start/:uuid", instance.Start)
+	instanceGroup.Post("/reboot/:uuid", instance.Reboot)
 }

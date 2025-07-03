@@ -57,8 +57,7 @@ func List(c *fiber.Ctx) error {
 	queryParams["show_pending_charges"] = "true"
 
 	config := utils.GetConfig()
-	client := resty.New()
-	resp, res, errResp, err := utils.GetRequest[interface{}](client, "https://api.vultr.com/v2/instances", queryParams, config.ApiKey)
+	resp, res, errResp, err := InstanceList(queryParams, config.ApiKey)
 	if err != nil {
 		return c.Status(500).JSON(utils.BasicResponse{
 			Success: false,
