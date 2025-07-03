@@ -118,7 +118,7 @@ func (s *ServerConfig) setupRoutes() {
 	instanceGroup.Get("/list", instance.List)
 	instanceGroup.Get("/detail/:uuid", instance.DatabaseDetail)
 	instanceGroup.Get("/database/list", instance.DatabaseList)
-	instanceGroup.Get("/database/detail/:uuid", instance.Detail)
+	instanceGroup.Get("/database/detail/:uuid", instance.DatabaseDetail)
 	instanceGroup.Post("/create", instance.Create)
 	instanceGroup.Delete("/delete/:uuid", instance.Delete)
 	instanceGroup.Post("/start/:uuid", instance.Start)
