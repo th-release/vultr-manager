@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"th-release/vultr-manager/api/application"
 	"th-release/vultr-manager/api/firewall"
 	"th-release/vultr-manager/api/instance"
@@ -50,22 +51,47 @@ func InsertInstance(db *pg.DB, instance instance.Instance) (*utils.Instance, orm
 		Vpcs:             instance.Vpcs,
 	}
 
-	var existing utils.Instance
-	err := db.Model(&existing).Where("id = ?", newInstance.Id).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newInstance).
-			Where("id = ?", instance.ID).
-			Update()
-		return newInstance, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 인스턴스 조회
+		var existingInstances []utils.Instance
+		err := tx.Model(&existingInstances).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 인스턴스 ID와 다른 경우 삭제
+		for _, existing := range existingInstances {
+			if existing.Id != instance.ID {
+				_, err := tx.Model(&utils.Instance{}).Where("id = ?", existing.Id).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.Instance
+		err = tx.Model(&existing).Where("id = ?", instance.ID).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newInstance).Where("id = ?", instance.ID).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newInstance).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newInstance).Insert()
-
-	return newInstance, result, err
+	return newInstance, result, nil
 }
 
 func InsertApplication(db *pg.DB, application application.Application) (*utils.Application, orm.Result, error) {
@@ -79,22 +105,47 @@ func InsertApplication(db *pg.DB, application application.Application) (*utils.A
 		ImageId:    application.ImageId,
 	}
 
-	var existing utils.Application
-	err := db.Model(&existing).Where("id = ?", application.Id).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newApplication).
-			Where("id = ?", application.Id).
-			Update()
-		return newApplication, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 애플리케이션 조회
+		var existingApplications []utils.Application
+		err := tx.Model(&existingApplications).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 애플리케이션 ID와 다른 경우 삭제
+		for _, existing := range existingApplications {
+			if existing.Id != application.Id {
+				_, err := tx.Model(&utils.Application{}).Where("id = ?", existing.Id).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.Application
+		err = tx.Model(&existing).Where("id = ?", application.Id).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newApplication).Where("id = ?", application.Id).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newApplication).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newApplication).Insert()
-
-	return newApplication, result, err
+	return newApplication, result, nil
 }
 
 func InsertFirewallGroup(db *pg.DB, group firewall.FirewallGroup) (*utils.FirewallGroup, orm.Result, error) {
@@ -108,27 +159,51 @@ func InsertFirewallGroup(db *pg.DB, group firewall.FirewallGroup) (*utils.Firewa
 		MaxRuleCount:  group.MaxRuleCount,
 	}
 
-	// ID로 기존 레코드 확인
-	var existing utils.FirewallGroup
-	err := db.Model(&existing).Where("id = ?", group.ID).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newGroup).
-			Where("id = ?", group.ID).
-			Update()
-		return newGroup, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 그룹 조회
+		var existingGroups []utils.FirewallGroup
+		err := tx.Model(&existingGroups).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 그룹 ID와 다른 경우 삭제
+		for _, existing := range existingGroups {
+			if existing.ID != group.ID {
+				_, err := tx.Model(&utils.FirewallGroup{}).Where("id = ?", existing.ID).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.FirewallGroup
+		err = tx.Model(&existing).Where("id = ?", group.ID).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newGroup).Where("id = ?", group.ID).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newGroup).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	// 존재하지 않으면 인서트
-	result, err := db.Model(newGroup).Insert()
-	return newGroup, result, err
+	return newGroup, result, nil
 }
 
 func InsertFirewallRule(db *pg.DB, rule firewall.FirewallRule) (*utils.FirewallRule, orm.Result, error) {
-	newRules := &utils.FirewallRule{
+	newRule := &utils.FirewallRule{
 		Id:         rule.Id,
 		Type:       rule.Type,
 		IpType:     rule.IpType,
@@ -141,22 +216,47 @@ func InsertFirewallRule(db *pg.DB, rule firewall.FirewallRule) (*utils.FirewallR
 		Notes:      rule.Notes,
 	}
 
-	var existing utils.FirewallRule
-	err := db.Model(&existing).Where("id = ?", rule.Id).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newRules).
-			Where("id = ?", rule.Id).
-			Update()
-		return newRules, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 규칙 조회
+		var existingRules []utils.FirewallRule
+		err := tx.Model(&existingRules).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 규칙 ID와 다른 경우 삭제
+		for _, existing := range existingRules {
+			if existing.Id != rule.Id {
+				_, err := tx.Model(&utils.FirewallRule{}).Where("id = ?", existing.Id).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.FirewallRule
+		err = tx.Model(&existing).Where("id = ?", rule.Id).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newRule).Where("id = ?", rule.Id).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newRule).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newRules).Insert()
-
-	return newRules, result, err
+	return newRule, result, nil
 }
 
 func InsertOs(db *pg.DB, os os.OS) (*utils.OS, orm.Result, error) {
@@ -167,22 +267,47 @@ func InsertOs(db *pg.DB, os os.OS) (*utils.OS, orm.Result, error) {
 		Family: os.Family,
 	}
 
-	var existing utils.OS
-	err := db.Model(&existing).Where("id = ?", os.Id).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newOS).
-			Where("id = ?", os.Id).
-			Update()
-		return newOS, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 OS 조회
+		var existingOSes []utils.OS
+		err := tx.Model(&existingOSes).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 OS ID와 다른 경우 삭제
+		for _, existing := range existingOSes {
+			if existing.Id != os.Id {
+				_, err := tx.Model(&utils.OS{}).Where("id = ?", existing.Id).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.OS
+		err = tx.Model(&existing).Where("id = ?", os.Id).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newOS).Where("id = ?", os.Id).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newOS).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newOS).Insert()
-
-	return newOS, result, err
+	return newOS, result, nil
 }
 
 func InsertPlan(db *pg.DB, plan plan.Plan) (*utils.Plan, orm.Result, error) {
@@ -202,22 +327,47 @@ func InsertPlan(db *pg.DB, plan plan.Plan) (*utils.Plan, orm.Result, error) {
 		VcpuCount:   plan.VcpuCount,
 	}
 
-	var existing utils.Plan
-	err := db.Model(&existing).Where("id = ?", plan.ID).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newPlan).
-			Where("id = ?", plan.ID).
-			Update()
-		return newPlan, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 플랜 조회
+		var existingPlans []utils.Plan
+		err := tx.Model(&existingPlans).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 플랜 ID와 다른 경우 삭제
+		for _, existing := range existingPlans {
+			if existing.ID != plan.ID {
+				_, err := tx.Model(&utils.Plan{}).Where("id = ?", existing.ID).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.Plan
+		err = tx.Model(&existing).Where("id = ?", plan.ID).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newPlan).Where("id = ?", plan.ID).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newPlan).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newPlan).Insert()
-
-	return newPlan, result, err
+	return newPlan, result, nil
 }
 
 func InsertRegion(db *pg.DB, region region.Region) (*utils.Region, orm.Result, error) {
@@ -229,22 +379,47 @@ func InsertRegion(db *pg.DB, region region.Region) (*utils.Region, orm.Result, e
 		Options:   region.Options,
 	}
 
-	var existing utils.Region
-	err := db.Model(&existing).Where("id = ?", region.ID).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newRegion).
-			Where("id = ?", region.ID).
-			Update()
-		return newRegion, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 리전 조회
+		var existingRegions []utils.Region
+		err := tx.Model(&existingRegions).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 리전 ID와 다른 경우 삭제
+		for _, existing := range existingRegions {
+			if existing.ID != region.ID {
+				_, err := tx.Model(&utils.Region{}).Where("id = ?", existing.ID).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.Region
+		err = tx.Model(&existing).Where("id = ?", region.ID).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newRegion).Where("id = ?", region.ID).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newRegion).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newRegion).Insert()
-
-	return newRegion, result, err
+	return newRegion, result, nil
 }
 
 func InsertScript(db *pg.DB, script script.Script) (*utils.Script, orm.Result, error) {
@@ -256,20 +431,45 @@ func InsertScript(db *pg.DB, script script.Script) (*utils.Script, orm.Result, e
 		Type:         script.Type,
 	}
 
-	var existing utils.Script
-	err := db.Model(&existing).Where("id = ?", script.ID).Select()
-	if err == nil {
-		// 존재하면 업데이트
-		result, err := db.Model(newScript).
-			Where("id = ?", script.ID).
-			Update()
-		return newScript, result, err
-	} else if err != pg.ErrNoRows {
-		// 다른 에러 발생 시 반환
+	var result orm.Result
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		// DB에서 기존 스크립트 조회
+		var existingScripts []utils.Script
+		err := tx.Model(&existingScripts).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return err
+		}
+
+		// DB에 있지만 입력 스크립트 ID와 다른 경우 삭제
+		for _, existing := range existingScripts {
+			if existing.ID != script.ID {
+				_, err := tx.Model(&utils.Script{}).Where("id = ?", existing.ID).Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ID로 기존 레코드 확인
+		var existing utils.Script
+		err = tx.Model(&existing).Where("id = ?", script.ID).Select()
+		if err == nil {
+			// 존재하면 업데이트
+			result, err = tx.Model(newScript).Where("id = ?", script.ID).Update()
+			return err
+		} else if err != pg.ErrNoRows {
+			// 다른 에러 반환
+			return err
+		}
+
+		// 존재하지 않으면 인서트
+		result, err = tx.Model(newScript).Insert()
+		return err
+	})
+
+	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := db.Model(newScript).Insert()
-
-	return newScript, result, err
+	return newScript, result, nil
 }
