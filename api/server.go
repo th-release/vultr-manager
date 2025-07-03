@@ -116,8 +116,8 @@ func (s *ServerConfig) setupRoutes() {
 
 	instanceGroup := apiGroup.Group("/instance", InstanceMiddleware)
 	instanceGroup.Get("/list", instance.List)
-	instanceGroup.Get("/detail/:uuid", instance.Detail)
-	instanceGroup.Get("/database/list", instance.List)
+	instanceGroup.Get("/detail/:uuid", instance.DatabaseDetail)
+	instanceGroup.Get("/database/list", instance.DatabaseList)
 	instanceGroup.Get("/database/detail/:uuid", instance.Detail)
 	instanceGroup.Post("/create", instance.Create)
 	instanceGroup.Delete("/delete/:uuid", instance.Delete)
