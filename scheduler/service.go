@@ -50,6 +50,19 @@ func InsertInstance(db *pg.DB, instance instance.Instance) (*utils.Instance, orm
 		Vpcs:             instance.Vpcs,
 	}
 
+	var existing utils.Instance
+	err := db.Model(&existing).Where("id = ?", newInstance.Id).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newInstance).
+			Where("id = ?", instance.ID).
+			Update()
+		return newInstance, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
+	}
+
 	result, err := db.Model(newInstance).Insert()
 
 	return newInstance, result, err
@@ -64,6 +77,19 @@ func InsertApplication(db *pg.DB, application application.Application) (*utils.A
 		Type:       application.Type,
 		Vendor:     application.Vendor,
 		ImageId:    application.ImageId,
+	}
+
+	var existing utils.Application
+	err := db.Model(&existing).Where("id = ?", application.Id).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newApplication).
+			Where("id = ?", application.Id).
+			Update()
+		return newApplication, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
 	}
 
 	result, err := db.Model(newApplication).Insert()
@@ -82,8 +108,22 @@ func InsertFirewallGroup(db *pg.DB, group firewall.FirewallGroup) (*utils.Firewa
 		MaxRuleCount:  group.MaxRuleCount,
 	}
 
-	result, err := db.Model(newGroup).Insert()
+	// ID로 기존 레코드 확인
+	var existing utils.FirewallGroup
+	err := db.Model(&existing).Where("id = ?", group.ID).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newGroup).
+			Where("id = ?", group.ID).
+			Update()
+		return newGroup, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
+	}
 
+	// 존재하지 않으면 인서트
+	result, err := db.Model(newGroup).Insert()
 	return newGroup, result, err
 }
 
@@ -101,6 +141,19 @@ func InsertFirewallRule(db *pg.DB, rule firewall.FirewallRule) (*utils.FirewallR
 		Notes:      rule.Notes,
 	}
 
+	var existing utils.FirewallRule
+	err := db.Model(&existing).Where("id = ?", rule.Id).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newRules).
+			Where("id = ?", rule.Id).
+			Update()
+		return newRules, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
+	}
+
 	result, err := db.Model(newRules).Insert()
 
 	return newRules, result, err
@@ -112,6 +165,19 @@ func InsertOs(db *pg.DB, os os.OS) (*utils.OS, orm.Result, error) {
 		Name:   os.Name,
 		Arch:   os.Arch,
 		Family: os.Family,
+	}
+
+	var existing utils.OS
+	err := db.Model(&existing).Where("id = ?", os.Id).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newOS).
+			Where("id = ?", os.Id).
+			Update()
+		return newOS, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
 	}
 
 	result, err := db.Model(newOS).Insert()
@@ -136,6 +202,19 @@ func InsertPlan(db *pg.DB, plan plan.Plan) (*utils.Plan, orm.Result, error) {
 		VcpuCount:   plan.VcpuCount,
 	}
 
+	var existing utils.Plan
+	err := db.Model(&existing).Where("id = ?", plan.ID).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newPlan).
+			Where("id = ?", plan.ID).
+			Update()
+		return newPlan, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
+	}
+
 	result, err := db.Model(newPlan).Insert()
 
 	return newPlan, result, err
@@ -150,6 +229,19 @@ func InsertRegion(db *pg.DB, region region.Region) (*utils.Region, orm.Result, e
 		Options:   region.Options,
 	}
 
+	var existing utils.Region
+	err := db.Model(&existing).Where("id = ?", region.ID).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newRegion).
+			Where("id = ?", region.ID).
+			Update()
+		return newRegion, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
+	}
+
 	result, err := db.Model(newRegion).Insert()
 
 	return newRegion, result, err
@@ -162,6 +254,19 @@ func InsertScript(db *pg.DB, script script.Script) (*utils.Script, orm.Result, e
 		ID:           script.ID,
 		Name:         script.Name,
 		Type:         script.Type,
+	}
+
+	var existing utils.Script
+	err := db.Model(&existing).Where("id = ?", script.ID).Select()
+	if err == nil {
+		// 존재하면 업데이트
+		result, err := db.Model(newScript).
+			Where("id = ?", script.ID).
+			Update()
+		return newScript, result, err
+	} else if err != pg.ErrNoRows {
+		// 다른 에러 발생 시 반환
+		return nil, nil, err
 	}
 
 	result, err := db.Model(newScript).Insert()
