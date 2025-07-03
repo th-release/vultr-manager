@@ -11,6 +11,11 @@ type ListRequest struct {
 	Hostname        string `query:"hostname" json:"hostname"`
 }
 
+type DatabaseListRequest struct {
+	Page  int `query:"page"`
+	Limit int `query:"limit"`
+}
+
 type CreateRequest struct {
 	Region            string     `json:"region"`
 	Plan              string     `json:"plan"`

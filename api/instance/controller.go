@@ -89,6 +89,38 @@ func List(c *fiber.Ctx) error {
 	})
 }
 
+func DatabaseList(c *fiber.Ctx) error {
+	var dto DatabaseListRequest
+	if err := c.QueryParser(&dto); err != nil {
+		return c.Status(400).JSON(utils.BasicResponse{
+			Success: false,
+			Message: err.Error(),
+			Data:    nil,
+		})
+	}
+
+	config := utils.GetConfig()
+
+	db := utils.NewDB(*config)
+	defer db.Close()
+
+	instances, err := DatabaseInstanceList(db, dto.Page, dto.Limit)
+
+	if err != nil {
+		return c.Status(500).JSON(utils.BasicResponse{
+			Success: false,
+			Message: err.Error(),
+			Data:    nil,
+		})
+	}
+
+	return c.Status(200).JSON(utils.BasicResponse{
+		Success: true,
+		Message: "",
+		Data:    instances,
+	})
+}
+
 func Detail(c *fiber.Ctx) error {
 	uuid := c.Params("uuid")
 
@@ -123,6 +155,30 @@ func Detail(c *fiber.Ctx) error {
 		Success: true,
 		Message: "",
 		Data:    res,
+	})
+}
+
+func DatabaseDetail(c *fiber.Ctx) error {
+	uuid := c.Params("uuid")
+
+	config := utils.GetConfig()
+	db := utils.NewDB(*config)
+	defer db.Close()
+
+	instances, err := DatabaseInstanceDetail(db, uuid)
+
+	if err != nil {
+		return c.Status(500).JSON(utils.BasicResponse{
+			Success: false,
+			Message: err.Error(),
+			Data:    nil,
+		})
+	}
+
+	return c.Status(200).JSON(utils.BasicResponse{
+		Success: true,
+		Message: "",
+		Data:    instances,
 	})
 }
 
