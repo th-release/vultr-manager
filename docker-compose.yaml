@@ -8,3 +8,7 @@ services:
       API: "1234"
       PORT: 8087
       PASSWORD: 1234
+      DATABASE_ADDR: localhost:5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: "1234"
+      DATABASE_SCHEMA: vultrmanager
