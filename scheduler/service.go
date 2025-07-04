@@ -12,57 +12,34 @@ import (
 	"th-release/vultr-manager/utils"
 
 	"github.com/go-pg/pg/v10"
-	"github.com/go-pg/pg/v10/orm"
 )
 
-func InsertInstance(db *pg.DB, instance instance.Instance) (*utils.Instance, orm.Result, error) {
-	newInstance := &utils.Instance{
-		Id:               instance.ID,
-		AllowedBandwidth: instance.AllowedBandwidth,
-		AppID:            instance.AppID,
-		DateCreated:      instance.DateCreated,
-		Disk:             instance.Disk,
-		Features:         instance.Features,
-		FirewallGroupID:  instance.FirewallGroupID,
-		GatewayV4:        instance.GatewayV4,
-		Hostname:         instance.Hostname,
-		ImageID:          instance.ImageID,
-		InternalIP:       instance.InternalIP,
-		KVM:              instance.KVM,
-		Label:            instance.Label,
-		MainIP:           instance.MainIP,
-		NetmaskV4:        instance.NetmaskV4,
-		OS:               instance.OS,
-		OsID:             instance.OsID,
-		PendingCharges:   instance.PendingCharges,
-		Plan:             instance.Plan,
-		PowerStatus:      instance.PowerStatus,
-		RAM:              instance.RAM,
-		Region:           instance.Region,
-		ServerStatus:     instance.ServerStatus,
-		Status:           instance.Status,
-		Tag:              instance.Tag,
-		Tags:             instance.Tags,
-		UserScheme:       instance.UserScheme,
-		V6MainIP:         instance.V6MainIP,
-		V6Network:        instance.V6Network,
-		V6NetworkSize:    instance.V6NetworkSize,
-		VcpuCount:        instance.VcpuCount,
-		Vpcs:             instance.Vpcs,
-	}
+func MappingInstances(db *pg.DB, instances []instance.Instance) ([]utils.Instance, error) {
+	var updatedInstances []utils.Instance
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 인스턴스 조회
+		// 1. 현재 DB에 있는 모든 인스턴스 조회
 		var existingInstances []utils.Instance
 		err := tx.Model(&existingInstances).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 인스턴스 ID와 다른 경우 삭제
+		// 2. 기존 인스턴스 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[string]bool)
 		for _, existing := range existingInstances {
-			if existing.Id != instance.ID {
+			existingIDMap[existing.Id] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[string]bool)
+		for _, inst := range instances {
+			inputIDMap[inst.ID] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 인스턴스 삭제
+		for _, existing := range existingInstances {
+			if !inputIDMap[existing.Id] {
 				_, err := tx.Model(&utils.Instance{}).Where("id = ?", existing.Id).Delete()
 				if err != nil {
 					return err
@@ -70,53 +47,97 @@ func InsertInstance(db *pg.DB, instance instance.Instance) (*utils.Instance, orm
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.Instance
-		err = tx.Model(&existing).Where("id = ?", instance.ID).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newInstance).Where("id = ?", instance.ID).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 인스턴스에 대해 업데이트 또는 삽입
+		for _, inst := range instances {
+			newInstance := &utils.Instance{
+				Id:               inst.ID,
+				AllowedBandwidth: inst.AllowedBandwidth,
+				AppID:            inst.AppID,
+				DateCreated:      inst.DateCreated,
+				Disk:             inst.Disk,
+				Features:         inst.Features,
+				FirewallGroupID:  inst.FirewallGroupID,
+				GatewayV4:        inst.GatewayV4,
+				Hostname:         inst.Hostname,
+				ImageID:          inst.ImageID,
+				InternalIP:       inst.InternalIP,
+				KVM:              inst.KVM,
+				Label:            inst.Label,
+				MainIP:           inst.MainIP,
+				NetmaskV4:        inst.NetmaskV4,
+				OS:               inst.OS,
+				OsID:             inst.OsID,
+				PendingCharges:   inst.PendingCharges,
+				Plan:             inst.Plan,
+				PowerStatus:      inst.PowerStatus,
+				RAM:              inst.RAM,
+				Region:           inst.Region,
+				ServerStatus:     inst.ServerStatus,
+				Status:           inst.Status,
+				Tag:              inst.Tag,
+				Tags:             inst.Tags,
+				UserScheme:       inst.UserScheme,
+				V6MainIP:         inst.V6MainIP,
+				V6Network:        inst.V6Network,
+				V6NetworkSize:    inst.V6NetworkSize,
+				VcpuCount:        inst.VcpuCount,
+				Vpcs:             inst.Vpcs,
+			}
+
+			if existingIDMap[inst.ID] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newInstance).Where("id = ?", inst.ID).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newInstance).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedInstances = append(updatedInstances, *newInstance)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newInstance).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newInstance, result, nil
+	return updatedInstances, nil
 }
 
-func InsertApplication(db *pg.DB, application application.Application) (*utils.Application, orm.Result, error) {
-	newApplication := &utils.Application{
-		Id:         application.Id,
-		Name:       application.Name,
-		ShortName:  application.ShortName,
-		DeployName: application.DeployName,
-		Type:       application.Type,
-		Vendor:     application.Vendor,
-		ImageId:    application.ImageId,
-	}
+// 방법 1: 기본 접근 방식 (개별 업데이트/삽입)
+func MappingApplications(db *pg.DB, applications []application.Application) ([]utils.Application, error) {
+	var updatedApplications []utils.Application
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 애플리케이션 조회
+		// 1. 현재 DB에 있는 모든 애플리케이션 조회
 		var existingApplications []utils.Application
 		err := tx.Model(&existingApplications).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 애플리케이션 ID와 다른 경우 삭제
+		// 2. 기존 애플리케이션 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[int]bool)
 		for _, existing := range existingApplications {
-			if existing.Id != application.Id {
+			existingIDMap[existing.Id] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[int]bool)
+		for _, app := range applications {
+			inputIDMap[app.Id] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 애플리케이션 삭제
+		for _, existing := range existingApplications {
+			if !inputIDMap[existing.Id] {
 				_, err := tx.Model(&utils.Application{}).Where("id = ?", existing.Id).Delete()
 				if err != nil {
 					return err
@@ -124,53 +145,71 @@ func InsertApplication(db *pg.DB, application application.Application) (*utils.A
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.Application
-		err = tx.Model(&existing).Where("id = ?", application.Id).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newApplication).Where("id = ?", application.Id).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 애플리케이션에 대해 업데이트 또는 삽입
+		for _, app := range applications {
+			newApplication := &utils.Application{
+				Id:         app.Id,
+				Name:       app.Name,
+				ShortName:  app.ShortName,
+				DeployName: app.DeployName,
+				Type:       app.Type,
+				Vendor:     app.Vendor,
+				ImageId:    app.ImageId,
+			}
+
+			if existingIDMap[app.Id] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newApplication).Where("id = ?", app.Id).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newApplication).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedApplications = append(updatedApplications, *newApplication)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newApplication).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newApplication, result, nil
+	return updatedApplications, nil
 }
 
-func InsertFirewallGroup(db *pg.DB, group firewall.FirewallGroup) (*utils.FirewallGroup, orm.Result, error) {
-	newGroup := &utils.FirewallGroup{
-		ID:            group.ID,
-		Description:   group.Description,
-		DateCreated:   group.DateCreated,
-		DateModified:  group.DateModified,
-		InstanceCount: group.InstanceCount,
-		RuleCount:     group.RuleCount,
-		MaxRuleCount:  group.MaxRuleCount,
-	}
+func MappingFirewallGroups(db *pg.DB, groups []firewall.FirewallGroup) ([]utils.FirewallGroup, error) {
+	var updatedGroups []utils.FirewallGroup
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 그룹 조회
+		// 1. 현재 DB에 있는 모든 방화벽 그룹 조회
 		var existingGroups []utils.FirewallGroup
 		err := tx.Model(&existingGroups).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 그룹 ID와 다른 경우 삭제
+		// 2. 기존 그룹 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[string]bool)
 		for _, existing := range existingGroups {
-			if existing.ID != group.ID {
+			existingIDMap[existing.ID] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[string]bool)
+		for _, group := range groups {
+			inputIDMap[group.ID] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 그룹 삭제
+		for _, existing := range existingGroups {
+			if !inputIDMap[existing.ID] {
 				_, err := tx.Model(&utils.FirewallGroup{}).Where("id = ?", existing.ID).Delete()
 				if err != nil {
 					return err
@@ -178,56 +217,71 @@ func InsertFirewallGroup(db *pg.DB, group firewall.FirewallGroup) (*utils.Firewa
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.FirewallGroup
-		err = tx.Model(&existing).Where("id = ?", group.ID).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newGroup).Where("id = ?", group.ID).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 그룹에 대해 업데이트 또는 삽입
+		for _, group := range groups {
+			newGroup := &utils.FirewallGroup{
+				ID:            group.ID,
+				Description:   group.Description,
+				DateCreated:   group.DateCreated,
+				DateModified:  group.DateModified,
+				InstanceCount: group.InstanceCount,
+				RuleCount:     group.RuleCount,
+				MaxRuleCount:  group.MaxRuleCount,
+			}
+
+			if existingIDMap[group.ID] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newGroup).Where("id = ?", group.ID).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newGroup).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedGroups = append(updatedGroups, *newGroup)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newGroup).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newGroup, result, nil
+	return updatedGroups, nil
 }
 
-func InsertFirewallRule(db *pg.DB, rule firewall.FirewallRule) (*utils.FirewallRule, orm.Result, error) {
-	newRule := &utils.FirewallRule{
-		Id:         rule.Id,
-		Type:       rule.Type,
-		IpType:     rule.IpType,
-		Action:     rule.Action,
-		Protocol:   rule.Protocol,
-		Port:       rule.Port,
-		Subnet:     rule.Subnet,
-		SubnetSize: rule.SubnetSize,
-		Source:     rule.Source,
-		Notes:      rule.Notes,
-	}
+func MappingFirewallRules(db *pg.DB, rules []firewall.FirewallRule) ([]utils.FirewallRule, error) {
+	var updatedRules []utils.FirewallRule
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 규칙 조회
+		// 1. 현재 DB에 있는 모든 방화벽 규칙 조회
 		var existingRules []utils.FirewallRule
 		err := tx.Model(&existingRules).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 규칙 ID와 다른 경우 삭제
+		// 2. 기존 규칙 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[int64]bool)
 		for _, existing := range existingRules {
-			if existing.Id != rule.Id {
+			existingIDMap[existing.Id] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[int64]bool)
+		for _, rule := range rules {
+			inputIDMap[rule.Id] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 규칙 삭제
+		for _, existing := range existingRules {
+			if !inputIDMap[existing.Id] {
 				_, err := tx.Model(&utils.FirewallRule{}).Where("id = ?", existing.Id).Delete()
 				if err != nil {
 					return err
@@ -235,50 +289,74 @@ func InsertFirewallRule(db *pg.DB, rule firewall.FirewallRule) (*utils.FirewallR
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.FirewallRule
-		err = tx.Model(&existing).Where("id = ?", rule.Id).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newRule).Where("id = ?", rule.Id).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 규칙에 대해 업데이트 또는 삽입
+		for _, rule := range rules {
+			newRule := &utils.FirewallRule{
+				Id:         rule.Id,
+				Type:       rule.Type,
+				IpType:     rule.IpType,
+				Action:     rule.Action,
+				Protocol:   rule.Protocol,
+				Port:       rule.Port,
+				Subnet:     rule.Subnet,
+				SubnetSize: rule.SubnetSize,
+				Source:     rule.Source,
+				Notes:      rule.Notes,
+			}
+
+			if existingIDMap[rule.Id] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newRule).Where("id = ?", rule.Id).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newRule).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedRules = append(updatedRules, *newRule)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newRule).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newRule, result, nil
+	return updatedRules, nil
 }
 
-func InsertOs(db *pg.DB, os os.OS) (*utils.OS, orm.Result, error) {
-	newOS := &utils.OS{
-		Id:     os.Id,
-		Name:   os.Name,
-		Arch:   os.Arch,
-		Family: os.Family,
-	}
+func MappingOs(db *pg.DB, oses []os.OS) ([]utils.OS, error) {
+	var updatedOSes []utils.OS
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 OS 조회
+		// 1. 현재 DB에 있는 모든 OS 조회
 		var existingOSes []utils.OS
 		err := tx.Model(&existingOSes).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 OS ID와 다른 경우 삭제
+		// 2. 기존 OS ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[int]bool)
 		for _, existing := range existingOSes {
-			if existing.Id != os.Id {
+			existingIDMap[existing.Id] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[int]bool)
+		for _, osItem := range oses {
+			inputIDMap[osItem.Id] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 OS 삭제
+		for _, existing := range existingOSes {
+			if !inputIDMap[existing.Id] {
 				_, err := tx.Model(&utils.OS{}).Where("id = ?", existing.Id).Delete()
 				if err != nil {
 					return err
@@ -286,59 +364,68 @@ func InsertOs(db *pg.DB, os os.OS) (*utils.OS, orm.Result, error) {
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.OS
-		err = tx.Model(&existing).Where("id = ?", os.Id).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newOS).Where("id = ?", os.Id).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 OS에 대해 업데이트 또는 삽입
+		for _, osItem := range oses {
+			newOS := &utils.OS{
+				Id:     osItem.Id,
+				Name:   osItem.Name,
+				Arch:   osItem.Arch,
+				Family: osItem.Family,
+			}
+
+			if existingIDMap[osItem.Id] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newOS).Where("id = ?", osItem.Id).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newOS).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedOSes = append(updatedOSes, *newOS)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newOS).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newOS, result, nil
+	return updatedOSes, nil
 }
 
-func InsertPlan(db *pg.DB, plan plan.Plan) (*utils.Plan, orm.Result, error) {
-	newPlan := &utils.Plan{
-		Bandwidth:   plan.Bandwidth,
-		CpuVendor:   plan.CpuVendor,
-		Disk:        plan.Disk,
-		DiskCount:   plan.DiskCount,
-		DiskType:    plan.DiskType,
-		HourlyCost:  plan.HourlyCost,
-		ID:          plan.ID,
-		InvoiceType: plan.InvoiceType,
-		Locations:   plan.Locations,
-		MonthlyCost: plan.MonthlyCost,
-		RAM:         plan.RAM,
-		Type:        plan.Type,
-		VcpuCount:   plan.VcpuCount,
-	}
+func MappingPlans(db *pg.DB, plans []plan.Plan) ([]utils.Plan, error) {
+	var updatedPlans []utils.Plan
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 플랜 조회
+		// 1. 현재 DB에 있는 모든 플랜 조회
 		var existingPlans []utils.Plan
 		err := tx.Model(&existingPlans).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 플랜 ID와 다른 경우 삭제
+		// 2. 기존 플랜 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[string]bool)
 		for _, existing := range existingPlans {
-			if existing.ID != plan.ID {
+			existingIDMap[existing.ID] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[string]bool)
+		for _, planItem := range plans {
+			inputIDMap[planItem.ID] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 플랜 삭제
+		for _, existing := range existingPlans {
+			if !inputIDMap[existing.ID] {
 				_, err := tx.Model(&utils.Plan{}).Where("id = ?", existing.ID).Delete()
 				if err != nil {
 					return err
@@ -346,51 +433,77 @@ func InsertPlan(db *pg.DB, plan plan.Plan) (*utils.Plan, orm.Result, error) {
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.Plan
-		err = tx.Model(&existing).Where("id = ?", plan.ID).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newPlan).Where("id = ?", plan.ID).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 플랜에 대해 업데이트 또는 삽입
+		for _, planItem := range plans {
+			newPlan := &utils.Plan{
+				Bandwidth:   planItem.Bandwidth,
+				CpuVendor:   planItem.CpuVendor,
+				Disk:        planItem.Disk,
+				DiskCount:   planItem.DiskCount,
+				DiskType:    planItem.DiskType,
+				HourlyCost:  planItem.HourlyCost,
+				ID:          planItem.ID,
+				InvoiceType: planItem.InvoiceType,
+				Locations:   planItem.Locations,
+				MonthlyCost: planItem.MonthlyCost,
+				RAM:         planItem.RAM,
+				Type:        planItem.Type,
+				VcpuCount:   planItem.VcpuCount,
+			}
+
+			if existingIDMap[planItem.ID] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newPlan).Where("id = ?", planItem.ID).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newPlan).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedPlans = append(updatedPlans, *newPlan)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newPlan).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newPlan, result, nil
+	return updatedPlans, nil
 }
 
-func InsertRegion(db *pg.DB, region region.Region) (*utils.Region, orm.Result, error) {
-	newRegion := &utils.Region{
-		ID:        region.ID,
-		City:      region.City,
-		Country:   region.Country,
-		Continent: region.Continent,
-		Options:   region.Options,
-	}
+func MappingRegions(db *pg.DB, regions []region.Region) ([]utils.Region, error) {
+	var updatedRegions []utils.Region
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 리전 조회
+		// 1. 현재 DB에 있는 모든 리전 조회
 		var existingRegions []utils.Region
 		err := tx.Model(&existingRegions).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 리전 ID와 다른 경우 삭제
+		// 2. 기존 리전 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[string]bool)
 		for _, existing := range existingRegions {
-			if existing.ID != region.ID {
+			existingIDMap[existing.ID] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[string]bool)
+		for _, regionItem := range regions {
+			inputIDMap[regionItem.ID] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 리전 삭제
+		for _, existing := range existingRegions {
+			if !inputIDMap[existing.ID] {
 				_, err := tx.Model(&utils.Region{}).Where("id = ?", existing.ID).Delete()
 				if err != nil {
 					return err
@@ -398,51 +511,69 @@ func InsertRegion(db *pg.DB, region region.Region) (*utils.Region, orm.Result, e
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.Region
-		err = tx.Model(&existing).Where("id = ?", region.ID).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newRegion).Where("id = ?", region.ID).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 리전에 대해 업데이트 또는 삽입
+		for _, regionItem := range regions {
+			newRegion := &utils.Region{
+				ID:        regionItem.ID,
+				City:      regionItem.City,
+				Country:   regionItem.Country,
+				Continent: regionItem.Continent,
+				Options:   regionItem.Options,
+			}
+
+			if existingIDMap[regionItem.ID] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newRegion).Where("id = ?", regionItem.ID).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newRegion).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedRegions = append(updatedRegions, *newRegion)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newRegion).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newRegion, result, nil
+	return updatedRegions, nil
 }
 
-func InsertScript(db *pg.DB, script script.Script) (*utils.Script, orm.Result, error) {
-	newScript := &utils.Script{
-		DateCreated:  script.DateCreated,
-		DateModified: script.DateModified,
-		ID:           script.ID,
-		Name:         script.Name,
-		Type:         script.Type,
-	}
+func MappingScripts(db *pg.DB, scripts []script.Script) ([]utils.Script, error) {
+	var updatedScripts []utils.Script
 
-	var result orm.Result
 	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
-		// DB에서 기존 스크립트 조회
+		// 1. 현재 DB에 있는 모든 스크립트 조회
 		var existingScripts []utils.Script
 		err := tx.Model(&existingScripts).Select()
 		if err != nil && err != pg.ErrNoRows {
 			return err
 		}
 
-		// DB에 있지만 입력 스크립트 ID와 다른 경우 삭제
+		// 2. 기존 스크립트 ID를 맵으로 저장 (빠른 검색을 위해)
+		existingIDMap := make(map[string]bool)
 		for _, existing := range existingScripts {
-			if existing.ID != script.ID {
+			existingIDMap[existing.ID] = true
+		}
+
+		// 3. 입력 배열의 ID를 맵으로 저장
+		inputIDMap := make(map[string]bool)
+		for _, scriptItem := range scripts {
+			inputIDMap[scriptItem.ID] = true
+		}
+
+		// 4. DB에는 있지만 입력 배열에는 없는 스크립트 삭제
+		for _, existing := range existingScripts {
+			if !inputIDMap[existing.ID] {
 				_, err := tx.Model(&utils.Script{}).Where("id = ?", existing.ID).Delete()
 				if err != nil {
 					return err
@@ -450,26 +581,39 @@ func InsertScript(db *pg.DB, script script.Script) (*utils.Script, orm.Result, e
 			}
 		}
 
-		// ID로 기존 레코드 확인
-		var existing utils.Script
-		err = tx.Model(&existing).Where("id = ?", script.ID).Select()
-		if err == nil {
-			// 존재하면 업데이트
-			result, err = tx.Model(newScript).Where("id = ?", script.ID).Update()
-			return err
-		} else if err != pg.ErrNoRows {
-			// 다른 에러 반환
-			return err
+		// 5. 입력 배열의 각 스크립트에 대해 업데이트 또는 삽입
+		for _, scriptItem := range scripts {
+			newScript := &utils.Script{
+				DateCreated:  scriptItem.DateCreated,
+				DateModified: scriptItem.DateModified,
+				ID:           scriptItem.ID,
+				Name:         scriptItem.Name,
+				Type:         scriptItem.Type,
+			}
+
+			if existingIDMap[scriptItem.ID] {
+				// 기존에 존재하면 업데이트
+				_, err := tx.Model(newScript).Where("id = ?", scriptItem.ID).Update()
+				if err != nil {
+					return err
+				}
+			} else {
+				// 존재하지 않으면 삽입
+				_, err := tx.Model(newScript).Insert()
+				if err != nil {
+					return err
+				}
+			}
+
+			updatedScripts = append(updatedScripts, *newScript)
 		}
 
-		// 존재하지 않으면 인서트
-		result, err = tx.Model(newScript).Insert()
-		return err
+		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return newScript, result, nil
+	return updatedScripts, nil
 }

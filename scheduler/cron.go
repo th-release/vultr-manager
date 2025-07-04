@@ -32,9 +32,7 @@ func (j LoadVultr) Run() {
 	_, applicationRes, applicationErrResp, applicationErr := application.ApplicationList(applicationQuery, config.ApiKey)
 
 	if applicationErr == nil && applicationErrResp == nil {
-		for _, v := range applicationRes.Applications {
-			InsertApplication(db, v)
-		}
+		MappingApplications(db, applicationRes.Applications)
 	}
 
 	normalQuery := map[string]string{
@@ -53,14 +51,12 @@ func (j LoadVultr) Run() {
 
 	if firewallGroupErr == nil && firewallGroupErrResp == nil {
 		for _, v := range firewallGroupRes.Firewalls {
-			InsertFirewallGroup(db, v)
+			MappingFirewallGroups(db, firewallGroupRes.Firewalls)
 
 			_, firewallRuleRes, firewallRuleErrResp, firewallRuleErr := firewall.FirewallRulesList(v.ID, firewallRulesQuery, config.ApiKey)
 
 			if firewallRuleErr == nil && firewallRuleErrResp == nil {
-				for _, v := range firewallRuleRes.FirewallRules {
-					InsertFirewallRule(db, v)
-				}
+				MappingFirewallRules(db, firewallRuleRes.FirewallRules)
 			}
 		}
 	}
@@ -68,9 +64,7 @@ func (j LoadVultr) Run() {
 	_, instanceRes, instanceErrResp, instanceErr := instance.InstanceList(normalQuery, config.ApiKey)
 
 	if instanceErrResp == nil && instanceErr == nil {
-		for _, v := range instanceRes.Instances {
-			InsertInstance(db, v)
-		}
+		MappingInstances(db, instanceRes.Instances)
 	}
 
 	OsQuery := map[string]string{
@@ -80,17 +74,13 @@ func (j LoadVultr) Run() {
 	_, osRes, osErrResp, osErr := os.OsList(OsQuery, config.ApiKey)
 
 	if osErrResp == nil && osErr == nil {
-		for _, v := range osRes.OsList {
-			InsertOs(db, v)
-		}
+		MappingOs(db, osRes.OsList)
 	}
 
 	_, planRes, planErrResp, planErr := plan.PlanList(nil, config.ApiKey)
 
 	if planErrResp == nil && planErr == nil {
-		for _, v := range planRes.Plans {
-			InsertPlan(db, v)
-		}
+		MappingPlans(db, planRes.Plans)
 	}
 
 	RegionQuery := map[string]string{
@@ -100,9 +90,7 @@ func (j LoadVultr) Run() {
 	_, regionRes, regionErrResp, regionErr := region.RegionList(RegionQuery, config.ApiKey)
 
 	if regionErrResp == nil && regionErr == nil {
-		for _, v := range regionRes.Regions {
-			InsertRegion(db, v)
-		}
+		MappingRegions(db, regionRes.Regions)
 	}
 
 	ScriptQuery := map[string]string{
@@ -112,9 +100,7 @@ func (j LoadVultr) Run() {
 	_, scriptRes, scriptErrResp, scriptErr := script.ScriptList(ScriptQuery, config.ApiKey)
 
 	if scriptErrResp == nil && scriptErr == nil {
-		for _, v := range scriptRes.StartScripts {
-			InsertScript(db, v)
-		}
+		MappingScripts(db, scriptRes.StartScripts)
 	}
 }
 
