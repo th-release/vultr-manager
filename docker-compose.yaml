@@ -5,10 +5,11 @@ services:
     ports:
       - "8087:8087"
     environment:
-      API: "1234"
-      PORT: 8087
-      PASSWORD: 1234
-      DATABASE_ADDR: localhost:5432
-      DATABASE_USER: root
-      DATABASE_PASSWORD: "1234"
-      DATABASE_SCHEMA: vultrmanager
+      API: apikey
+      PASSWORD: password
+      PORT: 8080
+      DATABASE_ADDR: localhost
+      DATABASE_USER: vultr
+      DATABASE_PASSWORD: vultr
+      DATABASE_SCHEMA: vultr
+      SYNC_DATABASE: true
