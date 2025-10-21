@@ -22,7 +22,7 @@ type LoadVultr struct {
 func (j LoadVultr) Run() {
 	config := utils.GetConfig()
 
-	if config.SyncDatabase == "false" {
+	if !config.SyncDatabase {
 		return
 	}
 

@@ -14,7 +14,7 @@ type Config struct {
 	DatabaseUser     string `json:"DATABASE_USER"`
 	DatabasePassword string `json:"DATABASE_PASSWORD"`
 	DatabaseSchema   string `json:"DATABASE_SCHEMA"`
-	SyncDatabase     string `json:"SYNC_DATABASE"`
+	SyncDatabase     bool   `json:"SYNC_DATABASE"`
 }
 
 type Meta struct {
