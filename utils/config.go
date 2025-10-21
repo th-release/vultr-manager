@@ -13,5 +13,6 @@ func GetConfig() *Config {
 		DatabaseUser:     ThreeTermString(len(os.Getenv("DATABASE_USER")) >= 0, os.Getenv("DATABASE_USER"), "vultr"),
 		DatabasePassword: ThreeTermString(len(os.Getenv("DATABASE_PASSWORD")) >= 0, os.Getenv("DATABASE_PASSWORD"), "vultr"),
 		DatabaseSchema:   ThreeTermString(len(os.Getenv("DATABASE_SCHEMA")) >= 0, os.Getenv("DATABASE_SCHEMA"), "vultr"),
+		SyncDatabase:     ThreeTermString(len(os.Getenv("SYNC_DATABASE")) >= 0, os.Getenv("SYNC_DATABASE"), "false"),
 	}
 }

@@ -21,6 +21,11 @@ type LoadVultr struct {
 
 func (j LoadVultr) Run() {
 	config := utils.GetConfig()
+
+	if config.SyncDatabase == "false" {
+		return
+	}
+
 	db := utils.NewDB(*config)
 	defer db.Close()
 
