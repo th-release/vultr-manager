@@ -9,7 +9,7 @@ type BasicResponse struct {
 type Config struct {
 	ApiKey           string `json:"APIKEY"`
 	Password         string `json:"PASSWORD"`
-	Port             int    `json:"PORT"`
+	Port             string `json:"PORT"`
 	DatabaseAddr     string `json:"DATABASE_ADDR"`
 	DatabaseUser     string `json:"DATABASE_USER"`
 	DatabasePassword string `json:"DATABASE_PASSWORD"`
