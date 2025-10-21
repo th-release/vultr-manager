@@ -39,9 +39,6 @@ func InitServer(config *utils.Config) *ServerConfig {
 		Cron:   c,
 	}
 
-	db := utils.NewDB(server.Config)
-	defer db.Close()
-
 	server.App.Use(limiter.New(limiter.Config{
 		Next: func(c *fiber.Ctx) bool {
 			return c.IP() == "127.0.0.1"
@@ -60,11 +57,16 @@ func InitServer(config *utils.Config) *ServerConfig {
 		},
 	}))
 
-	err := utils.CreateSchema(db)
+	if config.SyncDatabase {
+		db := utils.NewDB(server.Config)
+		defer db.Close()
 
-	if err != nil {
-		log.Fatalln("DB Setting Error: " + err.Error())
-		return nil
+		err := utils.CreateSchema(db)
+
+		if err != nil {
+			log.Fatalln("DB Setting Error: " + err.Error())
+			return nil
+		}
 	}
 
 	server.setupRoutes()
